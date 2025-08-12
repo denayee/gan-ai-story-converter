@@ -1,3 +1,9 @@
+# { this for run project and create virtual env }
+#  python -m venv .venv
+# >> .venv\Scripts\activate
+# >> pip install streamlit requests
+# >> streamlit run app.py   
+
 import streamlit as st
 from elevenlabs import generate, play
 import tempfile
