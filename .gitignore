@@ -1,0 +1,21 @@
+# Dependency directories
+__pycache__/
+*.py[cod]
+*$py.class
+env/
+venv/
+ENV/
+.venv/
+
+# Environment files
+.env
+.env.local
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Downloaded project files (avoid committing generated files)
+*.mp3
