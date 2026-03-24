@@ -1,4 +1,4 @@
 streamlit
-elevenlabs
+elevenlabs==0.2.27
 python-dotenv
 requests
