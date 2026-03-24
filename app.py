@@ -1,55 +1,65 @@
 # { this for run project and create virtual env }
 #  python -m venv .venv
 # >> .venv\Scripts\activate
-# >> pip install streamlit requests
+# >> pip install streamlit gTTS
 # >> streamlit run app.py   
 
 import streamlit as st
-from elevenlabs import generate, set_api_key, voices
-import tempfile
-import os
-from dotenv import load_dotenv
+from gtts import gTTS
+import io
 
-load_dotenv()
 # run project using command: streamlit run app.py
 
 # Streamlit App Title
 st.set_page_config(page_title="Story to Audiobook", layout="centered")
 st.title("📖 Story to Audiobook")
-st.write("Convert your written story into a human-like voice using ElevenLabs.")
+st.write("Convert your written story into audio using Google Text-to-Speech (gTTS).")
 
-# Load API Key
-api_key = os.getenv("ELEVENLABS_API_KEY")
+# Initialize Session State
+if "audio_data" not in st.session_state:
+    st.session_state.audio_data = None
 
-if not api_key:
-    st.error("⚠️ API Key not found. Please add ELEVENLABS_API_KEY to your .env file.")
-    st.stop()
+if "story_input" not in st.session_state:
+    st.session_state.story_input = ""
 
-# Set API key for fetching voices
-set_api_key(api_key)
-
-# Dynamically fetch voices available to this user account
-@st.cache_data(show_spinner=False)
-def get_available_voices():
-    try:
-        v_list = voices()
-        return [v.name for v in v_list]
-    except Exception as e:
-        st.warning(f"Could not load voices dynamically: {e}")
-        return ["Rachel", "Drew", "Clyde", "Domi", "Bella", "Antoni"] # Fallbacks
-
-available_voices = get_available_voices()
+# Callback to reset the app properly before widget initialization
+def reset_app():
+    st.session_state.audio_data = None
+    st.session_state.story_input = ""
 
 # Input text area
 story_text = st.text_area(
-    "✍️ Enter your story below:", height=300, placeholder="Once upon a time..."
+    "✍️ Enter your story below:", 
+    height=300, 
+    placeholder="Once upon a time...", 
+    key="story_input"
 )
 
-# Voice selection
-if available_voices:
-    voice = st.selectbox("🎙️ Choose a valid voice from your account:", available_voices)
-else:
-    voice = st.text_input("🎙️ Enter a voice name manually:", "Rachel")
+# Language selection
+languages = {
+    "English": "en",
+    "Spanish": "es",
+    "French": "fr",
+    "German": "de",
+    "Italian": "it",
+    "Portuguese": "pt",
+    "Hindi": "hi"
+}
+selected_lang = st.selectbox("🌐 Choose an accent/language:", list(languages.keys()))
+lang_code = languages[selected_lang]
+
+# Accent selection for English
+tld = "com"
+if selected_lang == "English":
+    accents = {
+        "United States": "com",
+        "United Kingdom": "co.uk",
+        "Australia": "com.au",
+        "India": "co.in",
+        "Canada": "ca"
+    }
+    selected_accent = st.selectbox("🌎 Choose an English accent:", list(accents.keys()))
+    tld = accents[selected_accent]
 
 # Convert button
 if st.button("🎧 Convert to Audiobook"):
@@ -58,36 +68,29 @@ if st.button("🎧 Convert to Audiobook"):
     else:
         with st.spinner("🔄 Generating voice... Please wait."):
             try:
-                # Generate audio
-                audio = generate(
-                    text=story_text,
-                    voice=voice,
-                    model="eleven_multilingual_v2",
-                    api_key=api_key
-                )
-
-                # Save to temp file
-                with tempfile.NamedTemporaryFile(
-                    delete=False, suffix=".mp3"
-                ) as tmp_file:
-                    tmp_file.write(audio)
-                    tmp_path = tmp_file.name
-
-                # Audio player
+                # Generate audio using gTTS
+                tts = gTTS(text=story_text, lang=lang_code, tld=tld, slow=False)
+                
+                # Save audio directly into memory (BytesIO) instead of a temporary file
+                fp = io.BytesIO()
+                tts.write_to_fp(fp)
+                st.session_state.audio_data = fp.getvalue()
                 st.success("✅ Audio generated successfully!")
-                st.audio(tmp_path, format="audio/mp3")
-
-                # Download button
-                with open(tmp_path, "rb") as f:
-                    st.download_button(
-                        "⬇️ Download Audiobook",
-                        f,
-                        file_name="audiobook.mp3",
-                        mime="audio/mp3",
-                    )
-
-                # Cleanup temp file after download
-                os.remove(tmp_path)
 
             except Exception as e:
-                st.error(f"❌ Error: {e}")
+                st.error(f"❌ Error generating audio: {e}")
+
+# If audio has been generated and saved in session state, display it
+if st.session_state.audio_data:
+    st.audio(st.session_state.audio_data, format="audio/mp3")
+
+    st.download_button(
+        label="⬇️ Download Audiobook",
+        data=st.session_state.audio_data,
+        file_name="audiobook.mp3",
+        mime="audio/mp3",
+    )
+
+st.write("---")
+# Reset Button at the bottom
+st.button("🗑️ Reset Page", on_click=reset_app)
